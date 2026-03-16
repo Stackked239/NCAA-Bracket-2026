@@ -1,0 +1,70 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-hover: #334155;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --success: #22c55e;
+  --danger: #ef4444;
+  --warning: #f59e0b;
+  --border: #334155;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* Bracket connector lines */
+.bracket-line {
+  border-color: var(--border);
+}
+
+/* Game card transitions */
+.game-card {
+  transition: all 0.15s ease;
+}
+
+.game-card:hover {
+  transform: translateY(-1px);
+}
+
+/* Team selection */
+.team-btn {
+  transition: all 0.1s ease;
+}
+
+.team-btn.selected {
+  background: var(--accent);
+  color: white;
+}
+
+.team-btn.correct {
+  background: var(--success);
+  color: white;
+}
+
+.team-btn.incorrect {
+  background: var(--danger);
+  color: white;
+  opacity: 0.6;
+}
+
+.team-btn.pending {
+  background: var(--warning);
+  color: black;
+}
+
+.team-btn:disabled {
+  cursor: not-allowed;
+}
