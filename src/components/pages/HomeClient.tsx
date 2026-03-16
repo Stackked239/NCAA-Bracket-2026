@@ -1,18 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth, useGames, usePicks, useScorePolling, useMessages, useUpsetAlerts } from "@/lib/hooks";
+import { BRACKET_LOCK_TIME } from "@/lib/types";
 import LoginScreen from "@/components/LoginScreen";
 import Nav from "@/components/Nav";
 import BracketView from "@/components/BracketView";
+import BracketWizard from "@/components/BracketWizard";
 import UpsetAlerts from "@/components/UpsetAlerts";
 import TrashTalkFeed from "@/components/TrashTalkFeed";
 
 export default function HomeClient() {
   const auth = useAuth();
   const { games, loading: gamesLoading } = useGames();
-  const { picks, loading: picksLoading, makePick } = usePicks(auth.currentUser?.id);
+  const { picks, loading: picksLoading, makePick, refetch: refetchPicks } = usePicks(auth.currentUser?.id);
   const { messages, sendMessage } = useMessages();
   const upsetAlerts = useUpsetAlerts(games);
+  const [wizardOpen, setWizardOpen] = useState(false);
   useScorePolling(60000);
 
   if (auth.loading) {
@@ -33,11 +37,46 @@ export default function HomeClient() {
     );
   }
 
+  const locked = new Date() >= BRACKET_LOCK_TIME;
+  const totalGames = games.length;
+  const pickedCount = picks.length;
+
   return (
     <div className="min-h-screen">
       <Nav currentUser={auth.currentUser} onLogout={auth.logout} />
       <main className="max-w-7xl mx-auto px-4 py-6">
         <UpsetAlerts alerts={upsetAlerts} />
+
+        {/* Wizard CTA — prominent on mobile when bracket isn't complete */}
+        {!locked && !gamesLoading && !picksLoading && pickedCount < totalGames && (
+          <button
+            onClick={() => setWizardOpen(true)}
+            className="w-full mb-6 p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:scale-[0.99] transition-all shadow-lg shadow-blue-600/20"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-left">
+                <div className="text-lg font-bold">
+                  {pickedCount === 0 ? "Fill Out Your Bracket" : "Continue Your Bracket"}
+                </div>
+                <div className="text-sm text-blue-200 mt-0.5">
+                  {pickedCount === 0
+                    ? "Tap to pick your way through each round"
+                    : `${pickedCount}/${totalGames} picks made — keep going!`}
+                </div>
+              </div>
+              <div className="text-3xl">→</div>
+            </div>
+            {pickedCount > 0 && (
+              <div className="mt-3 w-full h-2 bg-blue-800/50 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-white/30 rounded-full transition-all"
+                  style={{ width: `${(pickedCount / totalGames) * 100}%` }}
+                />
+              </div>
+            )}
+          </button>
+        )}
+
         {gamesLoading || picksLoading ? (
           <div className="text-slate-400">Loading bracket...</div>
         ) : (
@@ -49,6 +88,20 @@ export default function HomeClient() {
           />
         )}
       </main>
+
+      {/* Bracket Wizard overlay */}
+      {wizardOpen && (
+        <BracketWizard
+          games={games}
+          picks={picks}
+          onPick={makePick}
+          onClose={() => {
+            setWizardOpen(false);
+            refetchPicks();
+          }}
+        />
+      )}
+
       <TrashTalkFeed
         messages={messages}
         currentUser={auth.currentUser}
