@@ -89,5 +89,5 @@ export interface UpsetAlert {
 export const REGIONS = ["EAST", "WEST", "SOUTH", "MIDWEST"] as const;
 export type Region = (typeof REGIONS)[number];
 
-// Bracket lock time: March 17, 2026 at 6:00 PM ET (First Four tip-off)
-export const BRACKET_LOCK_TIME = new Date("2026-03-17T18:00:00-04:00");
+// Bracket lock time — temporarily extended to let late entries finish
+export const BRACKET_LOCK_TIME = new Date("2026-03-18T00:00:00-04:00");
