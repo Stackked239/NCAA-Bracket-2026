@@ -1,6 +1,6 @@
 "use client";
 
-import { Game, Pick } from "@/lib/types";
+import { Game, Pick, LiveGameInfo } from "@/lib/types";
 import GameCard from "./GameCard";
 
 interface FirstFourProps {
@@ -8,9 +8,11 @@ interface FirstFourProps {
   picks: Pick[];
   onPick?: (gameId: string, team: string) => void;
   viewOnly?: boolean;
+  liveData?: Record<string, LiveGameInfo>;
+  onGameClick?: (game: Game) => void;
 }
 
-export default function FirstFour({ games, picks, onPick, viewOnly }: FirstFourProps) {
+export default function FirstFour({ games, picks, onPick, viewOnly, liveData, onGameClick }: FirstFourProps) {
   const ffGames = games.filter((g) => g.round === 0).sort((a, b) => a.id.localeCompare(b.id));
   const pickMap = new Map(picks.map((p) => [p.game_id, p]));
 
@@ -29,6 +31,8 @@ export default function FirstFour({ games, picks, onPick, viewOnly }: FirstFourP
             pick={pickMap.get(g.id)}
             onPick={onPick}
             viewOnly={viewOnly}
+            liveInfo={liveData?.[g.id]}
+            onGameClick={onGameClick}
           />
         ))}
       </div>

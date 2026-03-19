@@ -1,23 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth, useGames, usePicks, useScorePolling, useMessages, useUpsetAlerts } from "@/lib/hooks";
-import { BRACKET_LOCK_TIME } from "@/lib/types";
+import { useAuth, useGames, usePicks, useScorePolling, useMessages, useUpsetAlerts, useLiveGames, useMergedGames } from "@/lib/hooks";
+import { Game, BRACKET_LOCK_TIME } from "@/lib/types";
 import LoginScreen from "@/components/LoginScreen";
 import Nav from "@/components/Nav";
 import BracketView from "@/components/BracketView";
 import BracketWizard from "@/components/BracketWizard";
 import UpsetAlerts from "@/components/UpsetAlerts";
 import TrashTalkFeed from "@/components/TrashTalkFeed";
+import GameDetailModal from "@/components/GameDetailModal";
 
 export default function HomeClient() {
   const auth = useAuth();
-  const { games, loading: gamesLoading } = useGames();
+  const { games: rawGames, loading: gamesLoading } = useGames();
   const { picks, loading: picksLoading, makePick, refetch: refetchPicks } = usePicks(auth.currentUser?.id);
   const { messages, sendMessage } = useMessages();
+  const liveData = useLiveGames();
+  const games = useMergedGames(rawGames, liveData);
   const upsetAlerts = useUpsetAlerts(games);
   const [wizardOpen, setWizardOpen] = useState(false);
-  useScorePolling(60000);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
+  useScorePolling(120000); // DB updates every 2 minutes (live data via /api/live every 30s)
 
   if (auth.loading) {
     return (
@@ -85,6 +89,8 @@ export default function HomeClient() {
             picks={picks}
             onPick={makePick}
             userName={auth.currentUser.name}
+            liveData={liveData}
+            onGameClick={setSelectedGame}
           />
         )}
       </main>
@@ -99,6 +105,15 @@ export default function HomeClient() {
             setWizardOpen(false);
             refetchPicks();
           }}
+        />
+      )}
+
+      {/* Game Detail Modal */}
+      {selectedGame && (
+        <GameDetailModal
+          game={selectedGame}
+          liveInfo={liveData[selectedGame.id]}
+          onClose={() => setSelectedGame(null)}
         />
       )}
 

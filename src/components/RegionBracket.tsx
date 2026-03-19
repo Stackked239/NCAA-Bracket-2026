@@ -1,6 +1,6 @@
 "use client";
 
-import { Game, Pick } from "@/lib/types";
+import { Game, Pick, LiveGameInfo } from "@/lib/types";
 import GameCard from "./GameCard";
 
 interface RegionBracketProps {
@@ -9,9 +9,11 @@ interface RegionBracketProps {
   picks: Pick[];
   onPick?: (gameId: string, team: string) => void;
   viewOnly?: boolean;
+  liveData?: Record<string, LiveGameInfo>;
+  onGameClick?: (game: Game) => void;
 }
 
-export default function RegionBracket({ region, games, picks, onPick, viewOnly }: RegionBracketProps) {
+export default function RegionBracket({ region, games, picks, onPick, viewOnly, liveData, onGameClick }: RegionBracketProps) {
   const regionGames = games.filter((g) => g.region === region);
 
   const r1 = regionGames.filter((g) => g.round === 1).sort((a, b) => a.id.localeCompare(b.id));
@@ -19,29 +21,23 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly }
   const r3 = regionGames.filter((g) => g.round === 3).sort((a, b) => a.id.localeCompare(b.id));
   const r4 = regionGames.filter((g) => g.round === 4);
 
-  // For R2+, populate teams from picks (user's bracket view)
-  // The actual game data may not have teams filled in yet, but the user's picks determine what they see
   const pickMap = new Map(picks.map((p) => [p.game_id, p]));
 
   function getUserTeamForSlot(game: Game, slot: "a" | "b"): { name: string | null; seed: number | null } {
-    // First check if actual game data has the team
     if (slot === "a" && game.team_a_name) return { name: game.team_a_name, seed: game.team_a_seed };
     if (slot === "b" && game.team_b_name) return { name: game.team_b_name, seed: game.team_b_seed };
 
-    // Otherwise look for the feeder game and user's pick
     const allGames = games;
     const feederGame = allGames.find(
       (g) => g.next_game_id === game.id && g.next_game_slot === slot
     );
     if (!feederGame) return { name: null, seed: null };
 
-    // If the feeder game has an actual winner, use that
     if (feederGame.winner) {
       const seed = feederGame.winner === feederGame.team_a_name ? feederGame.team_a_seed : feederGame.team_b_seed;
       return { name: feederGame.winner, seed };
     }
 
-    // Otherwise use the user's pick for the feeder game
     const pick = pickMap.get(feederGame.id);
     if (pick) {
       const seed =
@@ -54,7 +50,6 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly }
     return { name: null, seed: null };
   }
 
-  // Build display games with user picks propagated
   function buildDisplayGame(game: Game): Game {
     const teamA = getUserTeamForSlot(game, "a");
     const teamB = getUserTeamForSlot(game, "b");
@@ -95,6 +90,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly }
                 onPick={onPick}
                 viewOnly={viewOnly}
                 compact
+                liveInfo={liveData?.[g.id]}
+                onGameClick={onGameClick}
               />
             );
           })}
@@ -113,6 +110,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly }
                 onPick={onPick}
                 viewOnly={viewOnly}
                 compact
+                liveInfo={liveData?.[g.id]}
+                onGameClick={onGameClick}
               />
             );
           })}
@@ -130,6 +129,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly }
                 pick={pickMap.get(g.id)}
                 onPick={onPick}
                 viewOnly={viewOnly}
+                liveInfo={liveData?.[g.id]}
+                onGameClick={onGameClick}
               />
             );
           })}
@@ -147,6 +148,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly }
                 pick={pickMap.get(g.id)}
                 onPick={onPick}
                 viewOnly={viewOnly}
+                liveInfo={liveData?.[g.id]}
+                onGameClick={onGameClick}
               />
             );
           })}
@@ -173,6 +176,7 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly }
                     pick={pickMap.get(g.id)}
                     onPick={onPick}
                     viewOnly={viewOnly}
+                    liveInfo={liveData?.[g.id]}
                   />
                 );
               })}

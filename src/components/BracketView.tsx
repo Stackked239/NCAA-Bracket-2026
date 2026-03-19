@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Game, Pick, REGIONS } from "@/lib/types";
+import { Game, Pick, LiveGameInfo, REGIONS } from "@/lib/types";
 import FirstFour from "./FirstFour";
 import RegionBracket from "./RegionBracket";
 import FinalFour from "./FinalFour";
+import FullBracket from "./FullBracket";
 
 interface BracketViewProps {
   games: Game[];
@@ -12,9 +13,11 @@ interface BracketViewProps {
   onPick?: (gameId: string, team: string) => void;
   viewOnly?: boolean;
   userName?: string;
+  liveData?: Record<string, LiveGameInfo>;
+  onGameClick?: (game: Game) => void;
 }
 
-export default function BracketView({ games, picks, onPick, viewOnly, userName }: BracketViewProps) {
+export default function BracketView({ games, picks, onPick, viewOnly, userName, liveData, onGameClick }: BracketViewProps) {
   const [activeTab, setActiveTab] = useState<string>("ALL");
 
   const tabs = [
@@ -30,6 +33,14 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName }
   const totalGames = games.length;
   const pickedCount = picks.length;
   const progress = totalGames > 0 ? Math.round((pickedCount / totalGames) * 100) : 0;
+
+  // Count live games
+  const liveCount = liveData
+    ? Object.values(liveData).filter((l) => l.gameState === "live").length
+    : 0;
+
+  // Show full bracket on xl+ when "Full Bracket" tab is active
+  const showFullBracket = activeTab === "ALL";
 
   return (
     <div>
@@ -51,6 +62,15 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName }
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {liveCount > 0 && (
+              <div className="flex items-center gap-1.5 text-sm text-yellow-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+                </span>
+                {liveCount} live
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -72,46 +92,65 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName }
         ))}
       </div>
 
-      {/* Content */}
-      <div className="space-y-8">
-        {(activeTab === "ALL" || activeTab === "FIRST_FOUR") && (
-          <FirstFour games={games} picks={picks} onPick={onPick} viewOnly={viewOnly} />
-        )}
-
-        {activeTab === "ALL" &&
-          REGIONS.map((region) => (
-            <RegionBracket
-              key={region}
-              region={region}
-              games={games}
-              picks={picks}
-              onPick={onPick}
-              viewOnly={viewOnly}
-            />
-          ))}
-
-        {activeTab !== "ALL" &&
-          activeTab !== "FIRST_FOUR" &&
-          activeTab !== "FINAL_FOUR" &&
-          REGIONS.includes(activeTab as typeof REGIONS[number]) && (
-            <RegionBracket
-              region={activeTab}
-              games={games}
-              picks={picks}
-              onPick={onPick}
-              viewOnly={viewOnly}
-            />
-          )}
-
-        {(activeTab === "ALL" || activeTab === "FINAL_FOUR") && (
-          <FinalFour
-            games={ffGames}
-            allGames={games}
+      {/* Desktop full bracket (xl+) */}
+      {showFullBracket && (
+        <div className="hidden xl:block">
+          <FullBracket
+            games={games}
             picks={picks}
             onPick={onPick}
             viewOnly={viewOnly}
+            liveData={liveData}
+            onGameClick={onGameClick}
           />
-        )}
+        </div>
+      )}
+
+      {/* Mobile / tablet / non-full-bracket views */}
+      <div className={showFullBracket ? "xl:hidden" : ""}>
+        <div className="space-y-8">
+          {(activeTab === "ALL" || activeTab === "FIRST_FOUR") && (
+            <FirstFour games={games} picks={picks} onPick={onPick} viewOnly={viewOnly} liveData={liveData} />
+          )}
+
+          {activeTab === "ALL" &&
+            REGIONS.map((region) => (
+              <RegionBracket
+                key={region}
+                region={region}
+                games={games}
+                picks={picks}
+                onPick={onPick}
+                viewOnly={viewOnly}
+                liveData={liveData}
+              />
+            ))}
+
+          {activeTab !== "ALL" &&
+            activeTab !== "FIRST_FOUR" &&
+            activeTab !== "FINAL_FOUR" &&
+            REGIONS.includes(activeTab as typeof REGIONS[number]) && (
+              <RegionBracket
+                region={activeTab}
+                games={games}
+                picks={picks}
+                onPick={onPick}
+                viewOnly={viewOnly}
+                liveData={liveData}
+              />
+            )}
+
+          {(activeTab === "ALL" || activeTab === "FINAL_FOUR") && (
+            <FinalFour
+              games={ffGames}
+              allGames={games}
+              picks={picks}
+              onPick={onPick}
+              viewOnly={viewOnly}
+              liveData={liveData}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

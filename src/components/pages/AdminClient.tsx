@@ -66,7 +66,7 @@ export default function AdminClient() {
   };
 
   const handleFetchScores = async () => {
-    setScoreStatus("Fetching scores from ESPN...");
+    setScoreStatus("Fetching scores from NCAA API...");
     try {
       const res = await fetch("/api/scores", { method: "POST" });
       const data = await res.json();
@@ -74,7 +74,7 @@ export default function AdminClient() {
         setScoreStatus(`Error: ${data.error}`);
       } else {
         setScoreStatus(
-          `Updated ${data.updated_games} game(s) from ${data.espn_events} ESPN events`
+          `Updated ${data.updated_games} game(s) from ${data.ncaa_games} NCAA API events`
         );
         refetchGames();
       }
@@ -157,7 +157,7 @@ export default function AdminClient() {
             onClick={handleFetchScores}
             className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-sm font-medium"
           >
-            Fetch Live Scores from ESPN
+            Fetch Live Scores from NCAA
           </button>
           {scoreStatus && <p className="text-sm text-slate-400 mt-2">{scoreStatus}</p>}
 

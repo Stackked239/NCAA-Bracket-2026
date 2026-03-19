@@ -1,6 +1,6 @@
 "use client";
 
-import { Game, Pick } from "@/lib/types";
+import { Game, Pick, LiveGameInfo } from "@/lib/types";
 import GameCard from "./GameCard";
 
 interface FinalFourProps {
@@ -9,9 +9,11 @@ interface FinalFourProps {
   picks: Pick[];
   onPick?: (gameId: string, team: string) => void;
   viewOnly?: boolean;
+  liveData?: Record<string, LiveGameInfo>;
+  onGameClick?: (game: Game) => void;
 }
 
-export default function FinalFour({ games, allGames, picks, onPick, viewOnly }: FinalFourProps) {
+export default function FinalFour({ games, allGames, picks, onPick, viewOnly, liveData, onGameClick }: FinalFourProps) {
   const sf1 = games.find((g) => g.id === "FF_SF1");
   const sf2 = games.find((g) => g.id === "FF_SF2");
   const chip = games.find((g) => g.id === "FF_CHIP");
@@ -39,14 +41,12 @@ export default function FinalFour({ games, allGames, picks, onPick, viewOnly }: 
     }
 
     // Go deeper - check if user has picked the regional champion
-    // For Elite Eight feeders, check the user's pick
     const feederFeeder = allGames.filter(
       (g) => g.next_game_id === feederGame.id
     );
     for (const ff of feederFeeder) {
       const ffPick = pickMap.get(ff.id);
       if (ffPick) {
-        // Check if this team was picked through to the Final Four
         const e8Pick = pickMap.get(feederGame.id);
         if (e8Pick) {
           const seed = e8Pick.picked_team === feederGame.team_a_name ? feederGame.team_a_seed : feederGame.team_b_seed;
@@ -94,6 +94,8 @@ export default function FinalFour({ games, allGames, picks, onPick, viewOnly }: 
                 pick={pickMap.get(sf1.id)}
                 onPick={onPick}
                 viewOnly={viewOnly}
+                liveInfo={liveData?.[sf1.id]}
+                onGameClick={onGameClick}
               />
             )}
           </div>
@@ -109,6 +111,8 @@ export default function FinalFour({ games, allGames, picks, onPick, viewOnly }: 
                 pick={championPick}
                 onPick={onPick}
                 viewOnly={viewOnly}
+                liveInfo={liveData?.["FF_CHIP"]}
+                onGameClick={onGameClick}
               />
             )}
             {championName && (
@@ -132,6 +136,8 @@ export default function FinalFour({ games, allGames, picks, onPick, viewOnly }: 
                 pick={pickMap.get(sf2.id)}
                 onPick={onPick}
                 viewOnly={viewOnly}
+                liveInfo={liveData?.[sf2.id]}
+                onGameClick={onGameClick}
               />
             )}
           </div>

@@ -43,8 +43,16 @@ export interface LeaderboardEntry {
   user: User;
   total_points: number;
   correct_picks: number;
+  incorrect_picks: number;
+  pending_picks: number;
   total_picks: number;
   max_possible: number;
+  accuracy: number;
+  championship_pick: string | null;
+  championship_alive: boolean;
+  final_four_picks: string[];
+  upset_picks_correct: number;
+  upset_picks_total: number;
   picks_by_round: Record<number, { correct: number; total: number; possible: number }>;
 }
 
@@ -84,6 +92,19 @@ export interface UpsetAlert {
   underdogSeed: number;
   favorite: string;
   favoriteSeed: number;
+}
+
+export interface LiveGameInfo {
+  gameId: string;
+  ncaaGameId: string;
+  gameState: "pre" | "live" | "final";
+  clock: string;
+  period: string;
+  network: string;
+  startTime: string;
+  startTimeEpoch: string;
+  teamAScore: number | null;
+  teamBScore: number | null;
 }
 
 export const REGIONS = ["EAST", "WEST", "SOUTH", "MIDWEST"] as const;

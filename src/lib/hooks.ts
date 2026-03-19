@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { User, Game, Pick, LeaderboardEntry, Message, UpsetAlert } from "./types";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { User, Game, Pick, LeaderboardEntry, Message, UpsetAlert, LiveGameInfo } from "./types";
 
 // Simple fetch wrapper
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -194,6 +194,67 @@ export function useMessages() {
   );
 
   return { messages, loading, sendMessage, refetch: fetchMessages };
+}
+
+// ---- Live Game Data (NCAA API) ----
+export function useLiveGames() {
+  const [liveData, setLiveData] = useState<Record<string, LiveGameInfo>>({});
+
+  const fetchLive = useCallback(async () => {
+    try {
+      const data = await api<Record<string, LiveGameInfo>>("/api/live");
+      setLiveData(data);
+    } catch {
+      // Silently fail — live data is non-critical
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLive();
+    // Poll every 30 seconds for live game data
+    const id = setInterval(fetchLive, 30000);
+    return () => clearInterval(id);
+  }, [fetchLive]);
+
+  return liveData;
+}
+
+/**
+ * Merge live NCAA API data into the games array.
+ * Memoized to avoid creating new references on every render.
+ */
+export function useMergedGames(
+  games: Game[],
+  liveData: Record<string, LiveGameInfo>
+): Game[] {
+  // Serialize liveData into a stable key so useMemo only recomputes when values change
+  const liveKey = useRef("");
+  const nextKey = JSON.stringify(liveData);
+  if (nextKey !== liveKey.current) {
+    liveKey.current = nextKey;
+  }
+
+  return useMemo(() => {
+    if (Object.keys(liveData).length === 0) return games;
+
+    return games.map((g) => {
+      const live = liveData[g.id];
+      if (!live) return g;
+
+      return {
+        ...g,
+        team_a_score: live.teamAScore ?? g.team_a_score,
+        team_b_score: live.teamBScore ?? g.team_b_score,
+        status:
+          live.gameState === "live"
+            ? "in_progress"
+            : live.gameState === "final"
+            ? "final"
+            : g.status,
+      } as Game;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [games, liveKey.current]);
 }
 
 // ---- Upset Alerts ----

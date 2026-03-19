@@ -1,145 +1,220 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { fetchRecentScoreboards, teamsMatch, NcaaGame } from "@/lib/ncaa-api";
 
-const ESPN_SCOREBOARD_URL =
-  "https://site.api.espn.com/apis/site/v2/sports/basketball/mens-college-basketball/scoreboard";
-
-function normalizeTeamName(name: string): string {
-  return name.replace(/\./g, "").replace(/\s+/g, " ").trim().toLowerCase();
-}
-
-function teamsMatch(espnName: string, bracketName: string): boolean {
-  const a = normalizeTeamName(espnName);
-  const b = normalizeTeamName(bracketName);
-  return a === b || a.includes(b) || b.includes(a);
-}
-
+/**
+ * POST /api/scores
+ *
+ * Fetches live scores from the NCAA API (today + recent days),
+ * matches them to our DB games, and updates scores/status/winners.
+ * When a game goes final it propagates the winner forward and scores picks.
+ *
+ * SAFETY: Only updates scores/status/winner on existing games.
+ *         Never creates, deletes, or modifies picks beyond scoring.
+ */
 export async function POST() {
   try {
-    const res = await fetch(ESPN_SCOREBOARD_URL, {
-      cache: "no-store",
-      headers: { "User-Agent": "NCAA-Bracket-App/1.0" },
-    });
+    // Fetch scoreboards for today + past 2 days to catch recent finishes
+    const ncaaGames = await fetchRecentScoreboards(2);
 
-    if (!res.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch ESPN scores", status: res.status },
-        { status: 502 }
-      );
-    }
-
-    const data = await res.json();
-    const events = data.events || [];
-
-    // Get non-final games from our DB
+    // Get non-final games from our DB (only these need updating)
     const { data: games } = await supabase
       .from("games")
       .select("*")
       .neq("status", "final");
 
-    if (!games) return NextResponse.json({ success: true, updated_games: 0 });
+    if (!games || games.length === 0) {
+      return NextResponse.json({ success: true, updated_games: 0, ncaa_games: ncaaGames.length });
+    }
 
     let updatedCount = 0;
 
-    for (const event of events) {
-      const comp = event.competitions?.[0];
-      if (!comp) continue;
+    for (const ncaaGame of ncaaGames) {
+      // Only process tournament bracket games
+      if (!ncaaGame.bracketRound) continue;
 
-      const [away, home] = comp.competitors;
-      const awayName = away.team.displayName;
-      const homeName = home.team.displayName;
-      const awayScore = parseInt(away.score) || 0;
-      const homeScore = parseInt(home.score) || 0;
+      const match = findMatchingGame(ncaaGame, games);
+      if (!match) continue;
 
-      for (const game of games) {
-        if (!game.team_a_name || !game.team_b_name) continue;
+      const game = match.game;
+      const { teamAScore, teamBScore } = match;
 
-        const matchA = teamsMatch(awayName, game.team_a_name) || teamsMatch(homeName, game.team_a_name);
-        const matchB = teamsMatch(awayName, game.team_b_name) || teamsMatch(homeName, game.team_b_name);
+      // Map NCAA game state to our status
+      let gameStatus: string = game.status;
+      if (ncaaGame.gameState === "live") {
+        gameStatus = "in_progress";
+      } else if (ncaaGame.gameState === "final") {
+        gameStatus = "final";
+      }
 
-        if (matchA && matchB) {
-          const statusType = comp.status.type.name;
-          let gameStatus = "pregame";
-          if (statusType === "STATUS_IN_PROGRESS" || statusType === "STATUS_HALFTIME") {
-            gameStatus = "in_progress";
-          } else if (statusType === "STATUS_FINAL" || comp.status.type.completed) {
-            gameStatus = "final";
-          }
+      // Only update if something changed
+      const scoreChanged =
+        game.team_a_score !== teamAScore || game.team_b_score !== teamBScore;
+      const statusChanged = game.status !== gameStatus;
+      if (!scoreChanged && !statusChanged && game.espn_game_id === ncaaGame.gameID) {
+        continue;
+      }
 
-          let teamAScore: number, teamBScore: number;
-          if (teamsMatch(homeName, game.team_a_name)) {
-            teamAScore = homeScore;
-            teamBScore = awayScore;
-          } else {
-            teamAScore = awayScore;
-            teamBScore = homeScore;
-          }
+      const updates: Record<string, unknown> = {
+        team_a_score: ncaaGame.gameState === "pre" ? null : teamAScore,
+        team_b_score: ncaaGame.gameState === "pre" ? null : teamBScore,
+        status: gameStatus,
+        espn_game_id: ncaaGame.gameID, // Store NCAA game ID for fast future lookups
+        updated_at: new Date().toISOString(),
+      };
 
-          const updates: Record<string, unknown> = {
-            team_a_score: teamAScore,
-            team_b_score: teamBScore,
-            status: gameStatus,
-            espn_game_id: event.id,
-            updated_at: new Date().toISOString(),
-          };
-
-          if (gameStatus === "final") {
-            updates.winner = teamAScore > teamBScore ? game.team_a_name : game.team_b_name;
-          }
-
-          // Use the PATCH endpoint logic by updating directly
-          await supabase.from("games").update(updates).eq("id", game.id);
-
-          // If final, propagate winner to next game and score picks
-          if (gameStatus === "final" && updates.winner) {
-            // Propagate to next game
-            if (game.next_game_id) {
-              const winner = updates.winner as string;
-              const winnerSeed = winner === game.team_a_name ? game.team_a_seed : game.team_b_seed;
-              const winnerRecord = winner === game.team_a_name ? game.team_a_record : game.team_b_record;
-              const nextUpdates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-              if (game.next_game_slot === "a") {
-                nextUpdates.team_a_name = winner;
-                nextUpdates.team_a_seed = winnerSeed;
-                nextUpdates.team_a_record = winnerRecord;
-              } else {
-                nextUpdates.team_b_name = winner;
-                nextUpdates.team_b_seed = winnerSeed;
-                nextUpdates.team_b_record = winnerRecord;
-              }
-              await supabase.from("games").update(nextUpdates).eq("id", game.next_game_id);
-            }
-
-            // Score picks
-            const roundPoints: Record<number, number> = { 0: 1, 1: 1, 2: 2, 3: 4, 4: 8, 5: 16, 6: 32 };
-            const points = roundPoints[game.round] || 0;
-            await supabase
-              .from("picks")
-              .update({ is_correct: true, points_earned: points, updated_at: new Date().toISOString() })
-              .eq("game_id", game.id)
-              .eq("picked_team", updates.winner)
-              .is("is_correct", null);
-            await supabase
-              .from("picks")
-              .update({ is_correct: false, points_earned: 0, updated_at: new Date().toISOString() })
-              .eq("game_id", game.id)
-              .neq("picked_team", updates.winner)
-              .is("is_correct", null);
-          }
-
-          updatedCount++;
-          break;
+      // Determine winner for final games
+      if (gameStatus === "final") {
+        if (ncaaGame.away.winner) {
+          updates.winner = teamsMatch(ncaaGame.away.names.short, game.team_a_name)
+            ? game.team_a_name
+            : game.team_b_name;
+        } else if (ncaaGame.home.winner) {
+          updates.winner = teamsMatch(ncaaGame.home.names.short, game.team_a_name)
+            ? game.team_a_name
+            : game.team_b_name;
+        } else {
+          // Fallback to score comparison
+          updates.winner =
+            teamAScore !== null && teamBScore !== null && teamAScore > teamBScore
+              ? game.team_a_name
+              : game.team_b_name;
         }
       }
+
+      await supabase.from("games").update(updates).eq("id", game.id);
+
+      // If final, propagate winner and score picks
+      if (gameStatus === "final" && updates.winner) {
+        await propagateWinner(game, updates.winner as string);
+        await scorePicks(game.id, updates.winner as string, game.round);
+      }
+
+      updatedCount++;
     }
 
     return NextResponse.json({
       success: true,
-      espn_events: events.length,
+      ncaa_games: ncaaGames.length,
       updated_games: updatedCount,
     });
   } catch (error) {
     console.error("Score fetch error:", error);
     return NextResponse.json({ error: "Failed to fetch scores" }, { status: 500 });
   }
+}
+
+// ---- Helpers ----
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+interface GameMatch {
+  game: any;
+  teamAScore: number | null;
+  teamBScore: number | null;
+}
+
+function findMatchingGame(
+  ncaaGame: NcaaGame,
+  games: any[]
+): GameMatch | null {
+  const awayName = ncaaGame.away.names.short;
+  const homeName = ncaaGame.home.names.short;
+  const awayScore = ncaaGame.away.score ? parseInt(ncaaGame.away.score) : null;
+  const homeScore = ncaaGame.home.score ? parseInt(ncaaGame.home.score) : null;
+
+  for (const game of games) {
+    if (!game.team_a_name || !game.team_b_name) continue;
+
+    const teamA = game.team_a_name as string;
+    const teamB = game.team_b_name as string;
+
+    // Match by stored NCAA game ID first (fastest)
+    const matchById = game.espn_game_id === ncaaGame.gameID;
+
+    // Fall back to team name matching (both teams must match)
+    const matchByTeams =
+      (teamsMatch(awayName, teamA) || teamsMatch(homeName, teamA)) &&
+      (teamsMatch(awayName, teamB) || teamsMatch(homeName, teamB));
+
+    if (matchById || matchByTeams) {
+      // Map scores to our team A/B slots
+      let teamAScore: number | null = null;
+      let teamBScore: number | null = null;
+
+      if (awayScore !== null && homeScore !== null) {
+        if (teamsMatch(homeName, teamA)) {
+          teamAScore = homeScore;
+          teamBScore = awayScore;
+        } else {
+          teamAScore = awayScore;
+          teamBScore = homeScore;
+        }
+      }
+
+      return { game, teamAScore, teamBScore };
+    }
+  }
+
+  return null;
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function propagateWinner(game: any, winner: string) {
+  if (!game.next_game_id) return;
+
+  const winnerSeed =
+    winner === game.team_a_name ? game.team_a_seed : game.team_b_seed;
+  const winnerRecord =
+    winner === game.team_a_name ? game.team_a_record : game.team_b_record;
+
+  const nextUpdates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (game.next_game_slot === "a") {
+    nextUpdates.team_a_name = winner;
+    nextUpdates.team_a_seed = winnerSeed;
+    nextUpdates.team_a_record = winnerRecord;
+  } else {
+    nextUpdates.team_b_name = winner;
+    nextUpdates.team_b_seed = winnerSeed;
+    nextUpdates.team_b_record = winnerRecord;
+  }
+
+  await supabase
+    .from("games")
+    .update(nextUpdates)
+    .eq("id", game.next_game_id);
+}
+
+async function scorePicks(gameId: string, winner: string, round: number) {
+  const roundPoints: Record<number, number> = {
+    0: 1, 1: 1, 2: 2, 3: 4, 4: 8, 5: 16, 6: 32,
+  };
+  const points = roundPoints[round] || 0;
+
+  // Mark correct picks
+  await supabase
+    .from("picks")
+    .update({
+      is_correct: true,
+      points_earned: points,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("game_id", gameId)
+    .eq("picked_team", winner)
+    .is("is_correct", null);
+
+  // Mark incorrect picks
+  await supabase
+    .from("picks")
+    .update({
+      is_correct: false,
+      points_earned: 0,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("game_id", gameId)
+    .neq("picked_team", winner)
+    .is("is_correct", null);
 }

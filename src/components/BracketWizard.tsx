@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Game, Pick, ROUND_NAMES, REGIONS } from "@/lib/types";
+import { getTeamLogoUrl } from "@/lib/team-logos";
+import Image from "next/image";
 
 interface BracketWizardProps {
   games: Game[];
@@ -254,6 +256,8 @@ function GamePickCard({
   const teamA = game.team_a_name;
   const teamB = game.team_b_name;
   const picked = pick?.picked_team;
+  const logoA = getTeamLogoUrl(teamA);
+  const logoB = getTeamLogoUrl(teamB);
 
   return (
     <div className="w-full">
@@ -279,15 +283,22 @@ function GamePickCard({
       >
         <div className="flex items-center gap-4">
           <div
-            className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shrink-0 ${
-              picked === teamA ? "bg-blue-500 text-white" : "bg-slate-700 text-slate-300"
+            className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${
+              picked === teamA ? "bg-blue-500" : "bg-slate-700"
             }`}
           >
-            {game.team_a_seed || "?"}
+            {logoA ? (
+              <Image src={logoA} alt="" width={32} height={32} className="object-contain" unoptimized />
+            ) : (
+              <span className="text-xl font-bold">{game.team_a_seed || "?"}</span>
+            )}
           </div>
           <div className="flex-1 text-left min-w-0">
-            <div className={`text-lg font-bold truncate ${!teamA ? "text-slate-600" : ""}`}>
-              {teamA || "TBD"}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-mono">{game.team_a_seed}</span>
+              <span className={`text-lg font-bold truncate ${!teamA ? "text-slate-600" : ""}`}>
+                {teamA || "TBD"}
+              </span>
             </div>
             {game.team_a_record && (
               <div className="text-sm text-slate-400">{game.team_a_record}</div>
@@ -318,15 +329,22 @@ function GamePickCard({
       >
         <div className="flex items-center gap-4">
           <div
-            className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shrink-0 ${
-              picked === teamB ? "bg-blue-500 text-white" : "bg-slate-700 text-slate-300"
+            className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden ${
+              picked === teamB ? "bg-blue-500" : "bg-slate-700"
             }`}
           >
-            {game.team_b_seed || "?"}
+            {logoB ? (
+              <Image src={logoB} alt="" width={32} height={32} className="object-contain" unoptimized />
+            ) : (
+              <span className="text-xl font-bold">{game.team_b_seed || "?"}</span>
+            )}
           </div>
           <div className="flex-1 text-left min-w-0">
-            <div className={`text-lg font-bold truncate ${!teamB ? "text-slate-600" : ""}`}>
-              {teamB || "TBD"}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-mono">{game.team_b_seed}</span>
+              <span className={`text-lg font-bold truncate ${!teamB ? "text-slate-600" : ""}`}>
+                {teamB || "TBD"}
+              </span>
             </div>
             {game.team_b_record && (
               <div className="text-sm text-slate-400">{game.team_b_record}</div>
