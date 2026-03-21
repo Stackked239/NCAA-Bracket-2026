@@ -21,7 +21,7 @@ export default function LeaderboardClient() {
   const games = useMergedGames(rawGames, liveData);
   const [viewingUserId, setViewingUserId] = useState<string | null>(null);
   const { picks: viewPicks } = usePicks(viewingUserId || undefined);
-  const { messages, sendMessage } = useMessages();
+  const { messages, sendMessage, reactToMessage } = useMessages();
   const upsetAlerts = useUpsetAlerts(games);
   const leaderboardRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
@@ -173,6 +173,7 @@ export default function LeaderboardClient() {
         allUsers={auth.users}
         games={games}
         onSend={sendMessage}
+        onReact={reactToMessage}
       />
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { User, Game, Pick, LeaderboardEntry, Message, UpsetAlert, LiveGameInfo } from "./types";
+import { User, Game, Pick, LeaderboardEntry, Message, Reaction, UpsetAlert, LiveGameInfo } from "./types";
 
 // Simple fetch wrapper
 async function api<T>(url: string, options?: RequestInit): Promise<T> {
@@ -168,6 +168,23 @@ export function useMessages() {
   const fetchMessages = useCallback(async () => {
     try {
       const m = await api<Message[]>("/api/messages?limit=100");
+      // Fetch all reactions for the returned messages
+      const ids = m.map((msg) => msg.id);
+      if (ids.length > 0) {
+        const reactionsMap: Record<string, Reaction[]> = {};
+        // Batch fetch reactions for all message ids
+        const res = await fetch(`/api/messages/reactions?messageId=${ids.join(",")}`);
+        if (res.ok) {
+          const allReactions: Reaction[] = await res.json();
+          for (const r of allReactions) {
+            if (!reactionsMap[r.message_id]) reactionsMap[r.message_id] = [];
+            reactionsMap[r.message_id].push(r);
+          }
+        }
+        for (const msg of m) {
+          msg.reactions = reactionsMap[msg.id] || [];
+        }
+      }
       setMessages(m);
     } catch {}
     setLoading(false);
@@ -187,13 +204,32 @@ export function useMessages() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, userName, body, gameId }),
       });
+      msg.reactions = [];
       setMessages((prev) => [...prev, msg]);
       return msg;
     },
     []
   );
 
-  return { messages, loading, sendMessage, refetch: fetchMessages };
+  const reactToMessage = useCallback(
+    async (messageId: string, userId: string, emoji: string): Promise<Reaction[]> => {
+      const reactions = await api<Reaction[]>("/api/messages/reactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, userId, emoji }),
+      });
+      // Update the message's reactions in state
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === messageId ? { ...msg, reactions } : msg
+        )
+      );
+      return reactions;
+    },
+    []
+  );
+
+  return { messages, loading, sendMessage, reactToMessage, refetch: fetchMessages };
 }
 
 // ---- Live Game Data (NCAA API) ----

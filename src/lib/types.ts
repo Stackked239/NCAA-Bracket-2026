@@ -76,6 +76,16 @@ export const POINTS_BY_ROUND: Record<number, number> = {
   6: 32,
 };
 
+export interface Reaction {
+  id: string;
+  message_id: string;
+  user_id: string;
+  emoji: string;
+  created_at: string;
+}
+
+export const IMESSAGE_REACTIONS = ["❤️", "👍", "👎", "😂", "‼️", "❓"] as const;
+
 export interface Message {
   id: string;
   user_id: string;
@@ -83,6 +93,7 @@ export interface Message {
   body: string;
   game_id: string | null;
   created_at: string;
+  reactions?: Reaction[];
 }
 
 export interface UpsetAlert {

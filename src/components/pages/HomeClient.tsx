@@ -18,7 +18,7 @@ export default function HomeClient() {
   const auth = useAuth();
   const { games: rawGames, loading: gamesLoading } = useGames();
   const { picks, loading: picksLoading, makePick, refetch: refetchPicks } = usePicks(auth.currentUser?.id);
-  const { messages, sendMessage } = useMessages();
+  const { messages, sendMessage, reactToMessage } = useMessages();
   const liveData = useLiveGames();
   const games = useMergedGames(rawGames, liveData);
   const upsetAlerts = useUpsetAlerts(games);
@@ -133,6 +133,7 @@ export default function HomeClient() {
         allUsers={auth.users}
         games={games}
         onSend={sendMessage}
+        onReact={reactToMessage}
       />
 
       {/* Second Round Announcement */}

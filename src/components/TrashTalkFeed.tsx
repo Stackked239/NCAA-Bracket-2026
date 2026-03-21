@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Message, User, Game } from "@/lib/types";
+import { Message, User, Game, Reaction, IMESSAGE_REACTIONS } from "@/lib/types";
 import { IconChat, IconX, IconFlame } from "./Icons";
 
 interface TrashTalkFeedProps {
@@ -10,6 +10,7 @@ interface TrashTalkFeedProps {
   allUsers: User[];
   games: Game[];
   onSend: (userId: string, userName: string, body: string, gameId?: string) => Promise<Message>;
+  onReact: (messageId: string, userId: string, emoji: string) => Promise<Reaction[]>;
 }
 
 const LAST_READ_KEY = "ncaa_chat_last_read";
@@ -31,16 +32,56 @@ function setLastReadCount(count: number) {
   } catch {}
 }
 
-export default function TrashTalkFeed({ messages, currentUser, allUsers, games, onSend }: TrashTalkFeedProps) {
+// CSS keyframes injected once
+const REACTION_STYLES = `
+@keyframes reaction-bar-in {
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes reaction-bar-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes emoji-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+.reaction-bar-enter {
+  animation: reaction-bar-in 150ms ease-out forwards;
+}
+.reaction-bar-exit {
+  animation: reaction-bar-out 100ms ease-in forwards;
+}
+.emoji-btn:hover, .emoji-btn:active {
+  animation: emoji-pop 200ms ease-out;
+}
+`;
+
+export default function TrashTalkFeed({ messages, currentUser, allUsers, games, onSend, onReact }: TrashTalkFeedProps) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionIdx, setMentionIdx] = useState(0);
   const [lastRead, setLastRead] = useState(() => getLastReadCount());
+  const [activeReactionMsgId, setActiveReactionMsgId] = useState<string | null>(null);
+  const [reactionBarClosing, setReactionBarClosing] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const notifiedRef = useRef(new Set<string>());
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reactionBarRef = useRef<HTMLDivElement>(null);
+
+  // Inject animation styles once
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    if (document.getElementById("reaction-styles")) return;
+    const style = document.createElement("style");
+    style.id = "reaction-styles";
+    style.textContent = REACTION_STYLES;
+    document.head.appendChild(style);
+  }, []);
 
   // ---- Browser notification permission ----
   useEffect(() => {
@@ -65,7 +106,6 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
       return;
     }
 
-    // Check new messages for @mentions of current user
     const newMsgs = messages.slice(prevCountRef.current);
     prevCountRef.current = messages.length;
 
@@ -77,7 +117,6 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
       if (mentionPattern.test(msg.body)) {
         notifiedRef.current.add(msg.id);
 
-        // Browser notification
         if (typeof Notification !== "undefined" && Notification.permission === "granted") {
           new Notification(`${msg.user_name} mentioned you`, {
             body: msg.body,
@@ -86,18 +125,68 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
           });
         }
 
-        // Also open the chat if it's closed
         if (!isOpen) {
           setIsOpen(true);
         }
       }
     }
 
-    // Auto-scroll
     if (isOpen) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, currentUser.id, currentUser.name, isOpen]);
+
+  // ---- Close reaction bar on click outside ----
+  useEffect(() => {
+    if (!activeReactionMsgId) return;
+    const handler = (e: MouseEvent) => {
+      if (reactionBarRef.current && !reactionBarRef.current.contains(e.target as Node)) {
+        closeReactionBar();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [activeReactionMsgId]);
+
+  const closeReactionBar = useCallback(() => {
+    setReactionBarClosing(true);
+    setTimeout(() => {
+      setActiveReactionMsgId(null);
+      setReactionBarClosing(false);
+    }, 100);
+  }, []);
+
+  // ---- Reaction handlers ----
+  const handleReact = useCallback(async (messageId: string, emoji: string) => {
+    closeReactionBar();
+    try {
+      await onReact(messageId, currentUser.id, emoji);
+    } catch (e) {
+      console.error("Failed to react:", e);
+    }
+  }, [onReact, currentUser.id, closeReactionBar]);
+
+  const handleQuickReact = useCallback(async (messageId: string, emoji: string) => {
+    try {
+      await onReact(messageId, currentUser.id, emoji);
+    } catch (e) {
+      console.error("Failed to react:", e);
+    }
+  }, [onReact, currentUser.id]);
+
+  // ---- Long press for mobile ----
+  const handleTouchStart = useCallback((msgId: string) => {
+    longPressTimerRef.current = setTimeout(() => {
+      setActiveReactionMsgId(msgId);
+    }, 500);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
 
   // ---- @mention autocomplete ----
   const otherUsers = allUsers.filter((u) => u.id !== currentUser.id);
@@ -109,7 +198,6 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
   const handleInputChange = (val: string) => {
     setBody(val);
 
-    // Detect @mention trigger
     const cursorPos = inputRef.current?.selectionStart || val.length;
     const textBefore = val.slice(0, cursorPos);
     const atMatch = textBefore.match(/@(\w*)$/);
@@ -133,7 +221,6 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
   }, [body]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // @mention navigation
     if (mentionQuery !== null && filteredMentions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
@@ -156,7 +243,6 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
       }
     }
 
-    // Normal send
     if (e.key === "Enter" && !e.shiftKey) {
       handleSend();
     }
@@ -175,15 +261,12 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
     setSending(false);
   };
 
-  // Unread badge — based on persisted last-read count
   const unreadCount = isOpen ? 0 : Math.max(0, messages.length - lastRead);
-
-  // Live games for quick-tag
   const liveGames = games.filter((g) => g.status === "in_progress" && g.team_a_name && g.team_b_name);
 
   return (
     <>
-      {/* Toggle button — above mobile bottom nav */}
+      {/* Toggle button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="fixed bottom-20 sm:bottom-4 right-4 z-50 w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30 flex items-center justify-center text-2xl transition-transform active:scale-95"
@@ -196,7 +279,7 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
         )}
       </button>
 
-      {/* Chat panel — full screen on mobile, floating on desktop */}
+      {/* Chat panel */}
       {isOpen && (
         <div className="fixed inset-0 sm:inset-auto sm:bottom-20 sm:right-4 z-50 sm:w-[380px] sm:h-[520px] sm:max-h-[calc(100vh-6rem)] bg-[#1e293b] sm:rounded-xl sm:border sm:border-[#334155] sm:shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
@@ -228,6 +311,17 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
             ) : (
               messages.map((msg) => {
                 const isMe = msg.user_id === currentUser.id;
+                const reactions = msg.reactions || [];
+                const isReactionBarOpen = activeReactionMsgId === msg.id;
+
+                // Group reactions by emoji
+                const grouped = reactions.reduce<Record<string, { count: number; userReacted: boolean }>>((acc, r) => {
+                  if (!acc[r.emoji]) acc[r.emoji] = { count: 0, userReacted: false };
+                  acc[r.emoji].count++;
+                  if (r.user_id === currentUser.id) acc[r.emoji].userReacted = true;
+                  return acc;
+                }, {});
+
                 return (
                   <div
                     key={msg.id}
@@ -241,15 +335,80 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
                         {formatTime(msg.created_at)}
                       </span>
                     </div>
-                    <div
-                      className={`rounded-2xl px-3 py-2 max-w-[85%] text-sm break-words ${
-                        isMe
-                          ? "bg-blue-600 text-white rounded-br-md"
-                          : "bg-[#0f172a] text-slate-200 rounded-bl-md"
-                      }`}
-                    >
-                      <MessageBody body={msg.body} currentUserName={currentUser.name} />
+
+                    {/* Message bubble with reaction trigger */}
+                    <div className="relative group max-w-[85%]">
+                      {/* Reaction bar */}
+                      {isReactionBarOpen && (
+                        <div
+                          ref={reactionBarRef}
+                          className={`absolute bottom-full mb-2 ${isMe ? "right-0" : "left-0"} z-10 ${
+                            reactionBarClosing ? "reaction-bar-exit" : "reaction-bar-enter"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1 px-2 py-1.5 rounded-full bg-[#0f172a]/90 backdrop-blur-md border border-[#334155] shadow-xl">
+                            {IMESSAGE_REACTIONS.map((emoji) => {
+                              const userReacted = reactions.some(
+                                (r) => r.emoji === emoji && r.user_id === currentUser.id
+                              );
+                              return (
+                                <button
+                                  key={emoji}
+                                  onClick={() => handleReact(msg.id, emoji)}
+                                  className={`emoji-btn w-9 h-9 flex items-center justify-center rounded-full text-lg transition-all hover:bg-[#334155] ${
+                                    userReacted ? "ring-2 ring-blue-500 bg-blue-500/20" : ""
+                                  }`}
+                                >
+                                  {emoji}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Hover reaction trigger (desktop) */}
+                      <button
+                        onClick={() => setActiveReactionMsgId(isReactionBarOpen ? null : msg.id)}
+                        className={`absolute ${isMe ? "-left-8" : "-right-8"} top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#334155]/80 text-slate-400 hover:text-white hover:bg-[#475569] flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity`}
+                      >
+                        😊
+                      </button>
+
+                      <div
+                        onTouchStart={() => handleTouchStart(msg.id)}
+                        onTouchEnd={handleTouchEnd}
+                        onTouchCancel={handleTouchEnd}
+                        className={`rounded-2xl px-3 py-2 text-sm break-words select-none ${
+                          isMe
+                            ? "bg-blue-600 text-white rounded-br-md"
+                            : "bg-[#0f172a] text-slate-200 rounded-bl-md"
+                        }`}
+                      >
+                        <MessageBody body={msg.body} currentUserName={currentUser.name} />
+                      </div>
                     </div>
+
+                    {/* Reaction pills */}
+                    {Object.keys(grouped).length > 0 && (
+                      <div className={`flex flex-wrap gap-1 mt-1 ${isMe ? "justify-end" : "justify-start"}`}>
+                        {Object.entries(grouped).map(([emoji, { count, userReacted }]) => (
+                          <button
+                            key={emoji}
+                            onClick={() => handleQuickReact(msg.id, emoji)}
+                            className={`inline-flex items-center gap-0.5 h-6 px-1.5 rounded-full text-xs transition-all ${
+                              userReacted
+                                ? "bg-blue-500/20 border border-blue-500/50 text-blue-300"
+                                : "bg-[#0f172a] border border-[#334155] text-slate-400 hover:border-[#475569]"
+                            }`}
+                          >
+                            <span className="text-sm leading-none">{emoji}</span>
+                            <span>{count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
                     {msg.game_id && (
                       <span className="text-[10px] text-slate-600 mt-0.5">
                         re: {msg.game_id}
@@ -333,7 +492,6 @@ export default function TrashTalkFeed({ messages, currentUser, allUsers, games, 
 
 // ---- Message body with highlighted @mentions ----
 function MessageBody({ body, currentUserName }: { body: string; currentUserName: string }) {
-  // Split on @mentions
   const parts = body.split(/(@\w+(?:\s\w+)?)/g);
 
   return (
