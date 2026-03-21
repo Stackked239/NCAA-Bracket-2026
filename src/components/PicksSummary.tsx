@@ -20,6 +20,15 @@ export default function PicksSummary({ games, picks, userName }: PicksSummaryPro
 
   const pickMap = new Map(picks.map((p) => [p.game_id, p]));
 
+  // Build set of eliminated teams (teams that lost in any completed game)
+  const eliminatedTeams = new Set<string>();
+  games.forEach((g) => {
+    if (g.status === "final" && g.winner) {
+      if (g.team_a_name && g.team_a_name !== g.winner) eliminatedTeams.add(g.team_a_name);
+      if (g.team_b_name && g.team_b_name !== g.winner) eliminatedTeams.add(g.team_b_name);
+    }
+  });
+
   // Group games by round
   const rounds = [0, 1, 2, 3, 4, 5, 6].map((round) => {
     const roundGames = games.filter((g) => g.round === round).sort((a, b) => a.id.localeCompare(b.id));
@@ -137,7 +146,7 @@ export default function PicksSummary({ games, picks, userName }: PicksSummaryPro
               {isExpanded && (
                 <div className="divide-y divide-[#334155]/50">
                   {displayPicks.map(({ game, pick }) => (
-                    <PickRow key={game.id} game={game} pick={pick!} />
+                    <PickRow key={game.id} game={game} pick={pick!} eliminatedTeams={eliminatedTeams} />
                   ))}
                   {displayPicks.length === 0 && (
                     <div className="px-4 py-3 text-sm text-slate-500 text-center">
@@ -154,10 +163,11 @@ export default function PicksSummary({ games, picks, userName }: PicksSummaryPro
   );
 }
 
-function PickRow({ game, pick }: { game: Game; pick: Pick }) {
+function PickRow({ game, pick, eliminatedTeams }: { game: Game; pick: Pick; eliminatedTeams: Set<string> }) {
   const isCorrect = pick.is_correct === true;
   const isIncorrect = pick.is_correct === false;
   const isPending = pick.is_correct === null;
+  const isEliminated = isPending && eliminatedTeams.has(pick.picked_team);
   const logo = getTeamLogoUrl(pick.picked_team);
 
   // Find the opponent (the team they didn't pick)
@@ -172,22 +182,23 @@ function PickRow({ game, pick }: { game: Game; pick: Pick }) {
 
   return (
     <div className={`flex items-center gap-3 px-4 py-2.5 ${
-      isCorrect ? "bg-green-500/5" : isIncorrect ? "bg-red-500/5" : ""
+      isCorrect ? "bg-green-500/5" : isIncorrect ? "bg-red-500/5" : isEliminated ? "bg-red-500/5 opacity-60" : ""
     }`}>
       {/* Status icon */}
       <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
         isCorrect ? "bg-green-500/20 text-green-400" :
         isIncorrect ? "bg-red-500/20 text-red-400" :
+        isEliminated ? "bg-red-500/20 text-red-400" :
         "bg-yellow-500/20 text-yellow-400"
       }`}>
-        {isCorrect ? "✓" : isIncorrect ? "✗" : "?"}
+        {isCorrect ? "✓" : isIncorrect ? "✗" : isEliminated ? "💀" : "?"}
       </div>
 
       {/* Pick info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          {logo && <Image src={logo} alt="" width={16} height={16} className="shrink-0 object-contain" unoptimized />}
-          <span className={`text-sm font-semibold truncate ${isIncorrect ? "line-through text-slate-500" : ""}`}>
+          {logo && <Image src={logo} alt="" width={16} height={16} className={`shrink-0 object-contain ${isEliminated ? "grayscale" : ""}`} unoptimized />}
+          <span className={`text-sm font-semibold truncate ${isIncorrect ? "line-through text-slate-500" : isEliminated ? "line-through text-slate-500" : ""}`}>
             ({pickedSeed}) {pick.picked_team}
           </span>
         </div>
@@ -204,7 +215,10 @@ function PickRow({ game, pick }: { game: Game; pick: Pick }) {
         {isIncorrect && game.winner && (
           <span className="text-[11px] text-slate-500">{game.winner} won</span>
         )}
-        {isPending && (
+        {isEliminated && (
+          <span className="text-[11px] text-red-400/70 font-medium">Eliminated</span>
+        )}
+        {isPending && !isEliminated && (
           <span className="text-[11px] text-yellow-400">TBD</span>
         )}
       </div>
