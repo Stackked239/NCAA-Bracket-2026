@@ -210,19 +210,13 @@ function RoundIntro({
   gameCount: number;
   onStart: () => void;
 }) {
-  const emoji: Record<string, string> = {
-    "First Four": "4️⃣",
-    "Round of 64": "🏀",
-    "Round of 32": "🔥",
-    "Sweet 16": "🍬",
-    "Elite Eight": "💪",
-    "Final Four": "🏟️",
-    Championship: "🏆",
-  };
-
   return (
     <div className="text-center py-8">
-      <div className="text-6xl mb-6">{emoji[roundName] || "🏀"}</div>
+      <div className="mb-6 flex justify-center">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-3xl font-black text-white">
+          {gameCount}
+        </div>
+      </div>
       <h2 className="text-3xl font-bold mb-2">{roundName}</h2>
       <p className="text-slate-400 text-lg mb-8">
         {gameCount} game{gameCount !== 1 ? "s" : ""} to pick

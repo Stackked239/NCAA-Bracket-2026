@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth, useGames, usePicks, useScorePolling, useMessages, useUpsetAlerts, useLiveGames, useMergedGames } from "@/lib/hooks";
+import { useAuth, useGames, usePicks, useScorePolling, useMessages, useUpsetAlerts, useLiveGames, useMergedGames, usePickDistribution, useEliminatedTeams, useLeaderboard } from "@/lib/hooks";
 import { Game, BRACKET_LOCK_TIME } from "@/lib/types";
 import LoginScreen from "@/components/LoginScreen";
 import Nav from "@/components/Nav";
@@ -10,6 +10,9 @@ import BracketWizard from "@/components/BracketWizard";
 import UpsetAlerts from "@/components/UpsetAlerts";
 import TrashTalkFeed from "@/components/TrashTalkFeed";
 import GameDetailModal from "@/components/GameDetailModal";
+import AnnouncementModal from "@/components/AnnouncementModal";
+import TodayTicker from "@/components/TodayTicker";
+import ScoreTicker from "@/components/ScoreTicker";
 
 export default function HomeClient() {
   const auth = useAuth();
@@ -19,6 +22,9 @@ export default function HomeClient() {
   const liveData = useLiveGames();
   const games = useMergedGames(rawGames, liveData);
   const upsetAlerts = useUpsetAlerts(games);
+  const eliminatedTeams = useEliminatedTeams(games);
+  const pickDistribution = usePickDistribution();
+  const { entries: leaderboardEntries } = useLeaderboard();
   const [wizardOpen, setWizardOpen] = useState(false);
   const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   useScorePolling(120000); // DB updates every 2 minutes (live data via /api/live every 30s)
@@ -46,8 +52,10 @@ export default function HomeClient() {
   const pickedCount = picks.length;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 sm:pb-0">
       <Nav currentUser={auth.currentUser} onLogout={auth.logout} />
+      <ScoreTicker games={games} liveData={liveData} />
+      <TodayTicker games={games} liveData={liveData} onGameClick={setSelectedGame} />
       <main className="max-w-7xl mx-auto px-4 py-6">
         <UpsetAlerts alerts={upsetAlerts} />
 
@@ -91,6 +99,8 @@ export default function HomeClient() {
             userName={auth.currentUser.name}
             liveData={liveData}
             onGameClick={setSelectedGame}
+            eliminatedTeams={eliminatedTeams}
+            pickDistribution={pickDistribution}
           />
         )}
       </main>
@@ -120,9 +130,13 @@ export default function HomeClient() {
       <TrashTalkFeed
         messages={messages}
         currentUser={auth.currentUser}
+        allUsers={auth.users}
         games={games}
         onSend={sendMessage}
       />
+
+      {/* Second Round Announcement */}
+      <AnnouncementModal leader={leaderboardEntries[0] || null} />
     </div>
   );
 }

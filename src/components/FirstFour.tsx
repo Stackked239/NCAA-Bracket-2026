@@ -10,9 +10,11 @@ interface FirstFourProps {
   viewOnly?: boolean;
   liveData?: Record<string, LiveGameInfo>;
   onGameClick?: (game: Game) => void;
+  eliminatedTeams?: Set<string>;
+  pickDistribution?: Record<string, Record<string, number>>;
 }
 
-export default function FirstFour({ games, picks, onPick, viewOnly, liveData, onGameClick }: FirstFourProps) {
+export default function FirstFour({ games, picks, onPick, viewOnly, liveData, onGameClick, eliminatedTeams, pickDistribution }: FirstFourProps) {
   const ffGames = games.filter((g) => g.round === 0).sort((a, b) => a.id.localeCompare(b.id));
   const pickMap = new Map(picks.map((p) => [p.game_id, p]));
 
@@ -33,6 +35,8 @@ export default function FirstFour({ games, picks, onPick, viewOnly, liveData, on
             viewOnly={viewOnly}
             liveInfo={liveData?.[g.id]}
             onGameClick={onGameClick}
+            eliminatedTeams={eliminatedTeams}
+            pickDistribution={pickDistribution?.[g.id]}
           />
         ))}
       </div>

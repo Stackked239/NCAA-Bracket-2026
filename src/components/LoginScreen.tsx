@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { User } from "@/lib/types";
+import Image from "next/image";
 
 interface LoginScreenProps {
   users: User[];
@@ -30,7 +31,9 @@ export default function LoginScreen({ users, onLogin, onCreateUser }: LoginScree
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="text-6xl mb-4">🏀</div>
+          <div className="mb-4 flex justify-center">
+            <Image src="/ncaa-logo.png" alt="NCAA March Madness" width={220} height={55} className="object-contain" unoptimized />
+          </div>
           <h1 className="text-3xl font-bold mb-2">March Madness 2026</h1>
           <p className="text-slate-400">Warren Family Bracket Challenge</p>
         </div>

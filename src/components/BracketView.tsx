@@ -15,9 +15,11 @@ interface BracketViewProps {
   userName?: string;
   liveData?: Record<string, LiveGameInfo>;
   onGameClick?: (game: Game) => void;
+  eliminatedTeams?: Set<string>;
+  pickDistribution?: Record<string, Record<string, number>>;
 }
 
-export default function BracketView({ games, picks, onPick, viewOnly, userName, liveData, onGameClick }: BracketViewProps) {
+export default function BracketView({ games, picks, onPick, viewOnly, userName, liveData, onGameClick, eliminatedTeams, pickDistribution }: BracketViewProps) {
   const [activeTab, setActiveTab] = useState<string>("ALL");
 
   const tabs = [
@@ -102,6 +104,8 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName, 
             viewOnly={viewOnly}
             liveData={liveData}
             onGameClick={onGameClick}
+            eliminatedTeams={eliminatedTeams}
+            pickDistribution={pickDistribution}
           />
         </div>
       )}
@@ -110,7 +114,7 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName, 
       <div className={showFullBracket ? "xl:hidden" : ""}>
         <div className="space-y-8">
           {(activeTab === "ALL" || activeTab === "FIRST_FOUR") && (
-            <FirstFour games={games} picks={picks} onPick={onPick} viewOnly={viewOnly} liveData={liveData} />
+            <FirstFour games={games} picks={picks} onPick={onPick} viewOnly={viewOnly} liveData={liveData} onGameClick={onGameClick} eliminatedTeams={eliminatedTeams} pickDistribution={pickDistribution} />
           )}
 
           {activeTab === "ALL" &&
@@ -123,6 +127,9 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName, 
                 onPick={onPick}
                 viewOnly={viewOnly}
                 liveData={liveData}
+                onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution}
               />
             ))}
 
@@ -137,6 +144,9 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName, 
                 onPick={onPick}
                 viewOnly={viewOnly}
                 liveData={liveData}
+                onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution}
               />
             )}
 
@@ -148,6 +158,9 @@ export default function BracketView({ games, picks, onPick, viewOnly, userName, 
               onPick={onPick}
               viewOnly={viewOnly}
               liveData={liveData}
+              onGameClick={onGameClick}
+              eliminatedTeams={eliminatedTeams}
+              pickDistribution={pickDistribution}
             />
           )}
         </div>

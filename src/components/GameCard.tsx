@@ -12,9 +12,11 @@ interface GameCardProps {
   viewOnly?: boolean;
   liveInfo?: LiveGameInfo;
   onGameClick?: (game: Game) => void;
+  eliminatedTeams?: Set<string>;
+  pickDistribution?: Record<string, number>;
 }
 
-export default function GameCard({ game, pick, onPick, compact, viewOnly, liveInfo, onGameClick }: GameCardProps) {
+export default function GameCard({ game, pick, onPick, compact, viewOnly, liveInfo, onGameClick, eliminatedTeams, pickDistribution }: GameCardProps) {
   const locked = new Date() >= BRACKET_LOCK_TIME;
   const canPick = !locked && !viewOnly && onPick && game.team_a_name && game.team_b_name;
 
@@ -26,6 +28,8 @@ export default function GameCard({ game, pick, onPick, compact, viewOnly, liveIn
       return pick.is_correct ? "correct" : "incorrect";
     }
     if (game.status === "in_progress") return "pending";
+    // Check if the picked team has been eliminated in an earlier round
+    if (eliminatedTeams?.has(pick.picked_team)) return "busted";
     return "selected";
   }
 
@@ -108,7 +112,16 @@ export default function GameCard({ game, pick, onPick, compact, viewOnly, liveIn
         showScore={isLive || isFinal}
       />
 
-      <div className="border-t border-[#334155]/50 pointer-events-none" />
+      {/* Pick distribution bar */}
+      {pickDistribution && game.team_a_name && game.team_b_name && !compact && (
+        <DistributionBar
+          teamA={game.team_a_name}
+          teamB={game.team_b_name}
+          distribution={pickDistribution}
+        />
+      )}
+
+      {!pickDistribution && <div className="border-t border-[#334155]/50 pointer-events-none" />}
 
       {/* Team B */}
       <TeamRow
@@ -215,6 +228,45 @@ function TeamRow({
       } ${className} ${isWinner ? "font-bold" : ""} pointer-events-none`}
     >
       {content}
+    </div>
+  );
+}
+
+function DistributionBar({
+  teamA,
+  teamB,
+  distribution,
+}: {
+  teamA: string;
+  teamB: string;
+  distribution: Record<string, number>;
+}) {
+  const countA = distribution[teamA] || 0;
+  const countB = distribution[teamB] || 0;
+  const total = distribution._total || (countA + countB) || 1;
+  const pctA = Math.round((countA / total) * 100);
+  const pctB = Math.round((countB / total) * 100);
+
+  if (countA === 0 && countB === 0) {
+    return <div className="border-t border-[#334155]/50 pointer-events-none" />;
+  }
+
+  return (
+    <div className="pointer-events-none">
+      <div className="flex items-center h-4 text-[9px] font-bold">
+        <div
+          className="h-full bg-blue-500/20 text-blue-400 flex items-center justify-start pl-1.5 transition-all"
+          style={{ width: `${pctA || 1}%` }}
+        >
+          {pctA}%
+        </div>
+        <div
+          className="h-full bg-slate-600/20 text-slate-400 flex items-center justify-end pr-1.5 transition-all"
+          style={{ width: `${pctB || 1}%` }}
+        >
+          {pctB}%
+        </div>
+      </div>
     </div>
   );
 }

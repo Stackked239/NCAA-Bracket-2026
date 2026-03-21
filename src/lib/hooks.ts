@@ -257,6 +257,40 @@ export function useMergedGames(
   }, [games, liveKey.current]);
 }
 
+// ---- Pick Distribution ----
+export function usePickDistribution() {
+  const [dist, setDist] = useState<Record<string, Record<string, number>>>({});
+
+  const fetchDist = useCallback(async () => {
+    try {
+      const data = await api<Record<string, Record<string, number>>>("/api/picks/distribution");
+      setDist(data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchDist();
+    const id = setInterval(fetchDist, 60000); // Refresh every minute
+    return () => clearInterval(id);
+  }, [fetchDist]);
+
+  return dist;
+}
+
+// ---- Eliminated Teams ----
+export function useEliminatedTeams(games: Game[]): Set<string> {
+  return useMemo(() => {
+    const eliminated = new Set<string>();
+    for (const g of games) {
+      if (g.status === "final" && g.winner) {
+        const loser = g.winner === g.team_a_name ? g.team_b_name : g.team_a_name;
+        if (loser) eliminated.add(loser);
+      }
+    }
+    return eliminated;
+  }, [games]);
+}
+
 // ---- Upset Alerts ----
 export function useUpsetAlerts(games: Game[]): UpsetAlert[] {
   const [alerts, setAlerts] = useState<UpsetAlert[]>([]);

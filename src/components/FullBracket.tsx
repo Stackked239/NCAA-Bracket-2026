@@ -19,10 +19,12 @@ interface FullBracketProps {
   viewOnly?: boolean;
   liveData?: Record<string, LiveGameInfo>;
   onGameClick?: (game: Game) => void;
+  eliminatedTeams?: Set<string>;
+  pickDistribution?: Record<string, Record<string, number>>;
 }
 
 // ---- Main Component ----
-export default function FullBracket({ games, picks, onPick, viewOnly, liveData, onGameClick }: FullBracketProps) {
+export default function FullBracket({ games, picks, onPick, viewOnly, liveData, onGameClick, eliminatedTeams, pickDistribution }: FullBracketProps) {
   const pickMap = new Map(picks.map((p) => [p.game_id, p]));
   const locked = new Date() >= BRACKET_LOCK_TIME;
 
@@ -109,7 +111,7 @@ export default function FullBracket({ games, picks, onPick, viewOnly, liveData, 
               <div className="text-center mt-1">
                 <div className="text-[10px] text-slate-500 uppercase">Champion</div>
                 <div className="text-sm font-bold text-yellow-400">
-                  🏆 {chip?.winner || pickMap.get("FF_CHIP")?.picked_team}
+                  {chip?.winner || pickMap.get("FF_CHIP")?.picked_team}
                 </div>
               </div>
             )}

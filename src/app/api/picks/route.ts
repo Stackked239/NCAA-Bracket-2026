@@ -65,6 +65,21 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(data);
 }
 
+// Admin: reset incorrectly scored picks for a game
+export async function PATCH(req: NextRequest) {
+  const { gameId } = await req.json();
+  if (!gameId) return NextResponse.json({ error: "gameId required" }, { status: 400 });
+
+  const { data, error } = await supabase
+    .from("picks")
+    .update({ is_correct: null, points_earned: 0, updated_at: new Date().toISOString() })
+    .eq("game_id", gameId)
+    .select();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ reset: data?.length || 0 });
+}
+
 async function clearDownstreamPicks(userId: string, gameId: string, oldTeam: string) {
   // Get the game to find where it feeds into
   const { data: game } = await supabase.from("games").select("*").eq("id", gameId).single();

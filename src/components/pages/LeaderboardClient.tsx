@@ -9,7 +9,9 @@ import Nav from "@/components/Nav";
 import BracketView from "@/components/BracketView";
 import UpsetAlerts from "@/components/UpsetAlerts";
 import TrashTalkFeed from "@/components/TrashTalkFeed";
+import PicksSummary from "@/components/PicksSummary";
 import Image from "next/image";
+import { IconCrown, IconChevronLeft, IconChevronDown, IconTarget, IconCrystalBall, IconTrendingUp, IconDownload, IconCheck, IconTrophy, IconX } from "@/components/Icons";
 
 export default function LeaderboardClient() {
   const auth = useAuth();
@@ -75,7 +77,7 @@ export default function LeaderboardClient() {
   const leader = entries[0];
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 sm:pb-0">
       <Nav currentUser={auth.currentUser} onLogout={auth.logout} />
       <main className="max-w-4xl mx-auto px-4 py-6">
         {viewingUserId && viewingEntry ? (
@@ -84,15 +86,26 @@ export default function LeaderboardClient() {
               onClick={() => setViewingUserId(null)}
               className="text-blue-400 hover:text-blue-300 text-sm mb-4 flex items-center gap-1"
             >
-              ← Back to Leaderboard
+              <IconChevronLeft size={16} /> Back to Leaderboard
             </button>
-            <BracketView
-              games={games}
-              picks={viewPicks}
-              viewOnly
-              userName={viewingEntry.user.name}
-              liveData={liveData}
-            />
+            {/* Mobile: compact picks summary */}
+            <div className="xl:hidden">
+              <PicksSummary
+                games={games}
+                picks={viewPicks}
+                userName={viewingEntry.user.name}
+              />
+            </div>
+            {/* Desktop: full bracket view */}
+            <div className="hidden xl:block">
+              <BracketView
+                games={games}
+                picks={viewPicks}
+                viewOnly
+                userName={viewingEntry.user.name}
+                liveData={liveData}
+              />
+            </div>
           </div>
         ) : (
           <>
@@ -111,12 +124,12 @@ export default function LeaderboardClient() {
               >
                 {exporting ? (
                   <>
-                    <span className="animate-spin text-xs">⏳</span>
+                    <span className="animate-spin"><IconDownload size={16} /></span>
                     Exporting...
                   </>
                 ) : (
                   <>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <IconDownload size={16} />
                     Export PDF
                   </>
                 )}
@@ -157,6 +170,7 @@ export default function LeaderboardClient() {
       <TrashTalkFeed
         messages={messages}
         currentUser={auth.currentUser}
+        allUsers={auth.users}
         games={games}
         onSend={sendMessage}
       />
@@ -185,7 +199,7 @@ function LeaderSpotlight({
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-3xl font-black text-black shadow-lg shadow-yellow-500/25">
             1
           </div>
-          <span className="absolute -top-3 -right-2 text-2xl">👑</span>
+          <span className="absolute -top-3 -right-2"><IconCrown size={22} className="text-yellow-400" /></span>
         </div>
 
         <div className="flex-1 min-w-0">
@@ -196,9 +210,9 @@ function LeaderSpotlight({
                 <Image src={champLogo} alt="" width={14} height={14} className="object-contain" unoptimized />
                 {entry.championship_pick}
                 {entry.championship_alive ? (
-                  <span className="text-green-400">✓</span>
+                  <IconCheck size={12} className="text-green-400" />
                 ) : (
-                  <span className="text-red-400 line-through">✗</span>
+                  <IconX size={12} className="text-red-400" />
                 )}
               </span>
             )}
@@ -254,29 +268,29 @@ function StatsOverview({ entries }: { entries: LeaderboardEntry[] }) {
         label="Best Accuracy"
         value={`${bestAccuracy.accuracy}%`}
         sub={bestAccuracy.user.name}
-        icon="🎯"
+        icon={<IconTarget size={20} className="text-blue-400" />}
       />
       <MiniStatCard
         label="Most Upsets Called"
         value={`${mostUpsets.upset_picks_correct}`}
         sub={mostUpsets.user.name}
-        icon="🔮"
+        icon={<IconCrystalBall size={20} className="text-purple-400" />}
       />
       <MiniStatCard
         label="Highest Ceiling"
         value={`${highestCeiling.max_possible} pts`}
         sub={highestCeiling.user.name}
-        icon="📈"
+        icon={<IconTrendingUp size={20} className="text-green-400" />}
       />
     </div>
   );
 }
 
-function MiniStatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: string }) {
+function MiniStatCard({ label, value, sub, icon }: { label: string; value: string; sub: string; icon: React.ReactNode }) {
   return (
     <div className="bg-[#1e293b] rounded-xl border border-[#334155] px-4 py-3">
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{icon}</span>
+      <div className="flex items-center gap-3">
+        <span className="shrink-0">{icon}</span>
         <div>
           <div className="text-[10px] text-slate-500 uppercase tracking-wider">{label}</div>
           <div className="text-lg font-bold">{value}</div>

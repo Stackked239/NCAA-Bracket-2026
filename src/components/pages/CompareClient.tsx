@@ -63,7 +63,7 @@ export default function CompareClient() {
   const nameB = auth.users.find((u) => u.id === userB)?.name || "Player B";
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 sm:pb-0">
       <Nav currentUser={auth.currentUser} onLogout={auth.logout} />
       <main className="max-w-4xl mx-auto px-4 py-6">
         <h1 className="text-2xl font-bold mb-6">Compare Brackets</h1>

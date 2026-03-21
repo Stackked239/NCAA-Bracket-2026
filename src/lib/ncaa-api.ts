@@ -143,6 +143,32 @@ function normalize(name: string): string {
 }
 
 /**
+ * Known aliases: NCAA API short name → common bracket name.
+ * Both directions are checked automatically.
+ */
+const ALIASES: Record<string, string[]> = {
+  "uni": ["northern iowa"],
+  "liu": ["long island"],
+  "california baptist": ["cal baptist"],
+  "miami oh": ["miami ohio"],
+  "miami fl": ["miami florida", "miami"],
+  "uconn": ["connecticut"],
+  "st johns ny": ["st johns"],
+  "ucf": ["central florida"],
+  "vcu": ["virginia commonwealth"],
+  "smu": ["southern methodist"],
+  "byu": ["brigham young"],
+  "lsu": ["louisiana st"],
+  "ole miss": ["mississippi"],
+  "umbc": ["maryland baltimore county", "md baltimore county"],
+  "prairie view": ["prairie view a&m", "prairie view am"],
+  "queens nc": ["queens"],
+  "south fla": ["south florida", "usf"],
+  "n dak st": ["north dakota st"],
+  "nd st": ["north dakota st"],
+};
+
+/**
  * Expand common abbreviations in a normalized name.
  */
 function expandAbbreviations(s: string): string {
@@ -168,6 +194,14 @@ export function teamsMatch(nameA: string, nameB: string): boolean {
   const eb = expandAbbreviations(b);
   if (ea === eb) return true;
   if (ea.includes(eb) || eb.includes(ea)) return true;
+
+  // Check alias table (both directions)
+  for (const [key, vals] of Object.entries(ALIASES)) {
+    const allNames = [key, ...vals];
+    const aInGroup = allNames.some((n) => n === a || n === ea || a.includes(n) || n.includes(a));
+    const bInGroup = allNames.some((n) => n === b || n === eb || b.includes(n) || n.includes(b));
+    if (aInGroup && bInGroup) return true;
+  }
 
   return false;
 }

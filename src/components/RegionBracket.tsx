@@ -11,9 +11,11 @@ interface RegionBracketProps {
   viewOnly?: boolean;
   liveData?: Record<string, LiveGameInfo>;
   onGameClick?: (game: Game) => void;
+  eliminatedTeams?: Set<string>;
+  pickDistribution?: Record<string, Record<string, number>>;
 }
 
-export default function RegionBracket({ region, games, picks, onPick, viewOnly, liveData, onGameClick }: RegionBracketProps) {
+export default function RegionBracket({ region, games, picks, onPick, viewOnly, liveData, onGameClick, eliminatedTeams, pickDistribution }: RegionBracketProps) {
   const regionGames = games.filter((g) => g.region === region);
 
   const r1 = regionGames.filter((g) => g.round === 1).sort((a, b) => a.id.localeCompare(b.id));
@@ -92,6 +94,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly, 
                 compact
                 liveInfo={liveData?.[g.id]}
                 onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution?.[g.id]}
               />
             );
           })}
@@ -112,6 +116,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly, 
                 compact
                 liveInfo={liveData?.[g.id]}
                 onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution?.[g.id]}
               />
             );
           })}
@@ -131,6 +137,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly, 
                 viewOnly={viewOnly}
                 liveInfo={liveData?.[g.id]}
                 onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution?.[g.id]}
               />
             );
           })}
@@ -150,6 +158,8 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly, 
                 viewOnly={viewOnly}
                 liveInfo={liveData?.[g.id]}
                 onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution?.[g.id]}
               />
             );
           })}
@@ -177,6 +187,9 @@ export default function RegionBracket({ region, games, picks, onPick, viewOnly, 
                     onPick={onPick}
                     viewOnly={viewOnly}
                     liveInfo={liveData?.[g.id]}
+                    onGameClick={onGameClick}
+                    eliminatedTeams={eliminatedTeams}
+                    pickDistribution={pickDistribution?.[g.id]}
                   />
                 );
               })}

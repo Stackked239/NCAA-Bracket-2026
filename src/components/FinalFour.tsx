@@ -11,9 +11,11 @@ interface FinalFourProps {
   viewOnly?: boolean;
   liveData?: Record<string, LiveGameInfo>;
   onGameClick?: (game: Game) => void;
+  eliminatedTeams?: Set<string>;
+  pickDistribution?: Record<string, Record<string, number>>;
 }
 
-export default function FinalFour({ games, allGames, picks, onPick, viewOnly, liveData, onGameClick }: FinalFourProps) {
+export default function FinalFour({ games, allGames, picks, onPick, viewOnly, liveData, onGameClick, eliminatedTeams, pickDistribution }: FinalFourProps) {
   const sf1 = games.find((g) => g.id === "FF_SF1");
   const sf2 = games.find((g) => g.id === "FF_SF2");
   const chip = games.find((g) => g.id === "FF_CHIP");
@@ -96,6 +98,8 @@ export default function FinalFour({ games, allGames, picks, onPick, viewOnly, li
                 viewOnly={viewOnly}
                 liveInfo={liveData?.[sf1.id]}
                 onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution?.[sf1?.id || ""]}
               />
             )}
           </div>
@@ -113,13 +117,15 @@ export default function FinalFour({ games, allGames, picks, onPick, viewOnly, li
                 viewOnly={viewOnly}
                 liveInfo={liveData?.["FF_CHIP"]}
                 onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution?.["FF_CHIP"]}
               />
             )}
             {championName && (
               <div className="mt-3 text-center">
                 <div className="text-xs text-slate-500 uppercase">Champion</div>
                 <div className="text-xl font-bold text-yellow-400 mt-1">
-                  🏆 {championName}
+                  {championName}
                 </div>
               </div>
             )}
@@ -138,6 +144,8 @@ export default function FinalFour({ games, allGames, picks, onPick, viewOnly, li
                 viewOnly={viewOnly}
                 liveInfo={liveData?.[sf2.id]}
                 onGameClick={onGameClick}
+                eliminatedTeams={eliminatedTeams}
+                pickDistribution={pickDistribution?.[sf2?.id || ""]}
               />
             )}
           </div>

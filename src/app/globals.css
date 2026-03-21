@@ -64,3 +64,37 @@ body {
   background: var(--warning);
   color: black;
 }
+
+/* Safe area for mobile bottom nav */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Hide scrollbar for horizontal scroll areas */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Marquee animation for score ticker */
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee linear infinite;
+}
+
+/* Today's games ticker scroll */
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker {
+  animation: ticker linear infinite;
+  width: max-content;
+}
+
+/* Busted/eliminated pick */
+.busted {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
