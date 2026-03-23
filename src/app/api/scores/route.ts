@@ -131,8 +131,14 @@ function findMatchingGame(
     // Match by stored NCAA game ID first (fastest)
     const matchById = game.espn_game_id === ncaaGame.gameID;
 
-    // Fall back to team name matching (both teams must match)
+    // Fall back to team name matching (both teams must match AND round must match)
+    // Without the round check, a Round of 32 result can incorrectly match
+    // a Sweet 16 game with the same teams (e.g. Tennessee/Iowa St. in both).
+    // NCAA API bracketRound is 1-indexed (1=First Four, 2=R64, 3=R32, 4=S16…)
+    // while our DB round is 0-indexed (0=First Four, 1=R64, 2=R32, 3=S16…).
+    const roundMatches = ncaaGame.bracketRound === game.round + 1;
     const matchByTeams =
+      roundMatches &&
       (teamsMatch(awayName, teamA) || teamsMatch(homeName, teamA)) &&
       (teamsMatch(awayName, teamB) || teamsMatch(homeName, teamB));
 
